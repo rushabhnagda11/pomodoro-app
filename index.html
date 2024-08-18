@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro App</title>
+    <style>
+        /* Add some basic styling here */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pomodoro App</h1>
+    
+    <div id="task-form">
+        <input type="date" id="task-date">
+        <input type="text" id="task-name" placeholder="Task name">
+        <button onclick="startTask()">Start Task</button>
+    </div>
+
+    <div id="timer">
+        <h2>Current Task: <span id="current-task-name">No task running</span></h2>
+        <h3>Time Remaining: <span id="time-left">25:00</span></h3>
+        <button onclick="stopTask()" id="stop-btn" style="display:none;">Stop Task</button>
+        <button onclick="removeTask()" id="remove-btn" style="display:none;">Remove Task</button>
+        <button onclick="markTaskComplete(true)" id="complete-btn" style="display:none;">Mark Complete</button>
+        <button onclick="markTaskComplete(false)" id="incomplete-btn" style="display:none;">Mark Incomplete</button>
+    </div>
+
+    <div id="task-history">
+        <h2>Task History (Last 7 Days)</h2>
+        <div id="task-tables"></div>
+    </div>
+
+    <script>
+        let timer;
+        let currentTask;
+        let timeLeft;
+
+        function startTask() {
+            const date = document.getElementById('task-date').value;
+            const name = document.getElementById('task-name').value;
+            if (!date || !name) {
+                alert('Please enter both date and task name');
+                return;
+            }
+
+            currentTask = { date, name, startTime: new Date().toISOString(), status: 'in-progress' };
+            timeLeft = 25 * 60; // 25 minutes in seconds
+            updateTimerDisplay();
+            timer = setInterval(updateTimer, 1000); // Update every second
+
+            document.getElementById('current-task-name').textContent = name;
+            document.getElementById('stop-btn').style.display = 'inline';
+            document.getElementById('remove-btn').style.display = 'inline';
+            document.getElementById('complete-btn').style.display = 'none';
+            document.getElementById('incomplete-btn').style.display = 'none';
+
+            showTaskHistory();
+        }
+
+        function stopTask() {
+            clearInterval(timer);
+            currentTask.status = 'stopped';
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('remove-btn').style.display = 'inline';
+            document.getElementById('complete-btn').style.display = 'inline';
+            document.getElementById('incomplete-btn').style.display = 'inline';
+            showTaskHistory();
+        }
+
+        function removeTask() {
+            clearInterval(timer);
+            currentTask = null;
+            document.getElementById('current-task-name').textContent = 'No task running';
+            document.getElementById('time-left').textContent = '25:00';
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('remove-btn').style.display = 'none';
+            document.getElementById('complete-btn').style.display = 'none';
+            document.getElementById('incomplete-btn').style.display = 'none';
+            showTaskHistory();
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+                endTask();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('time-left').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function endTask() {
+            clearInterval(timer);
+            currentTask.status = 'completed';
+            document.getElementById('time-left').textContent = 'Time\'s up!';
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('remove-btn').style.display = 'inline';
+            document.getElementById('complete-btn').style.display = 'inline';
+            document.getElementById('incomplete-btn').style.display = 'inline';
+            showTaskHistory();
+        }
+
+        function markTaskComplete(completed) {
+            currentTask.completed = completed;
+            currentTask.endTime = new Date().toISOString();
+            currentTask.status = completed ? 'completed' : 'incomplete';
+
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            tasks.push(currentTask);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+
+            currentTask = null;
+            document.getElementById('current-task-name').textContent = 'No task running';
+            document.getElementById('stop-btn').style.display = 'none';
+            document.getElementById('remove-btn').style.display = 'none';
+            document.getElementById('complete-btn').style.display = 'none';
+            document.getElementById('incomplete-btn').style.display = 'none';
+            showTaskHistory();
+        }
+
+        function showTaskHistory() {
+            const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            const taskTables = document.getElementById('task-tables');
+            taskTables.innerHTML = '';
+
+            const last7Days = getLastSevenDays();
+
+            last7Days.forEach(date => {
+                const filteredTasks = tasks.filter(task => task.date === date);
+                const hasCurrentTask = currentTask && currentTask.date === date;
+
+                if (filteredTasks.length > 0 || hasCurrentTask) {
+                    const dateHeader = document.createElement('h3');
+                    dateHeader.textContent = formatDate(date);
+                    taskTables.appendChild(dateHeader);
+
+                    const table = document.createElement('table');
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Task Name</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+                    const tbody = table.querySelector('tbody');
+
+                    if (hasCurrentTask) {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${currentTask.name}</td>
+                            <td>${currentTask.status} (Current)</td>
+                            <td>${formatTime(currentTask.startTime)}</td>
+                            <td>-</td>
+                            <td>-</td>
+                        `;
+                    }
+
+                    filteredTasks.forEach(task => {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${task.name}</td>
+                            <td>${task.status}</td>
+                            <td>${formatTime(task.startTime)}</td>
+                            <td>${task.endTime ? formatTime(task.endTime) : '-'}</td>
+                            <td><button onclick="deleteTask(${JSON.stringify(task)})">Delete</button></td>
+                        `;
+                    });
+
+                    taskTables.appendChild(table);
+                }
+            });
+
+            if (taskTables.children.length === 0) {
+                const noTasksMessage = document.createElement('p');
+                noTasksMessage.textContent = 'No tasks in the last 7 days.';
+                taskTables.appendChild(noTasksMessage);
+            }
+        }
+
+        function deleteTask(taskToDelete) {
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            tasks = tasks.filter(task => 
+                task.date !== taskToDelete.date || 
+                task.name !== taskToDelete.name || 
+                task.startTime !== taskToDelete.startTime
+            );
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            showTaskHistory();
+        }
+
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getLastSevenDays() {
+            const dates = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+
+        function formatDate(dateString) {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString(undefined, options);
+        }
+
+        // Initialize task history on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('task-date').value = today;
+            showTaskHistory();
+        });
+    </script>
+</body>
+</html>
