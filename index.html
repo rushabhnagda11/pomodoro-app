@@ -188,7 +188,7 @@
                             <td>${task.status}</td>
                             <td>${formatTime(task.startTime)}</td>
                             <td>${task.endTime ? formatTime(task.endTime) : '-'}</td>
-                            <td><button onclick="deleteTask(${JSON.stringify(task)})">Delete</button></td>
+                            <td><button onclick='deleteTask(${JSON.stringify(task)})'>Delete</button></td>
                         `;
                     });
 
@@ -206,9 +206,9 @@
         function deleteTask(taskToDelete) {
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
             tasks = tasks.filter(task => 
-                task.date !== taskToDelete.date || 
-                task.name !== taskToDelete.name || 
-                task.startTime !== taskToDelete.startTime
+                !(task.date === taskToDelete.date && 
+                  task.name === taskToDelete.name && 
+                  task.startTime === taskToDelete.startTime)
             );
             localStorage.setItem('tasks', JSON.stringify(tasks));
             showTaskHistory();
