@@ -129,6 +129,7 @@
             currentTask.completed = completed;
             currentTask.endTime = new Date().toISOString();
             currentTask.status = completed ? 'completed' : 'incomplete';
+            currentTask.notes = ''; // Initialize notes as an empty string
 
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
             tasks.push(currentTask);
@@ -167,6 +168,7 @@
                                 <th>Status</th>
                                 <th>Start Time</th>
                                 <th>End Time</th>
+                                <th>Notes</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -182,6 +184,7 @@
                             <td>${formatTime(currentTask.startTime)}</td>
                             <td>-</td>
                             <td>-</td>
+                            <td>-</td>
                         `;
                     }
 
@@ -192,7 +195,12 @@
                             <td>${task.status}</td>
                             <td>${formatTime(task.startTime)}</td>
                             <td>${task.endTime ? formatTime(task.endTime) : '-'}</td>
-                            <td><button onclick='deleteTask(${JSON.stringify(task)})'>Delete</button></td>
+                            <td>
+                                <textarea onblur="updateTaskNotes('${task.startTime}', this.value)">${task.notes || ''}</textarea>
+                            </td>
+                            <td>
+                                <button onclick='deleteTask("${task.startTime}")'>Delete</button>
+                            </td>
                         `;
                     });
 
@@ -207,13 +215,18 @@
             }
         }
 
-        function deleteTask(taskToDelete) {
+        function updateTaskNotes(taskStartTime, notes) {
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-            tasks = tasks.filter(task => 
-                !(task.date === taskToDelete.date && 
-                  task.name === taskToDelete.name && 
-                  task.startTime === taskToDelete.startTime)
-            );
+            const taskIndex = tasks.findIndex(task => task.startTime === taskStartTime);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].notes = notes;
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+        }
+
+        function deleteTask(taskStartTime) {
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            tasks = tasks.filter(task => task.startTime !== taskStartTime);
             localStorage.setItem('tasks', JSON.stringify(tasks));
             showTaskHistory();
         }
