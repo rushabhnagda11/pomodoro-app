@@ -50,6 +50,7 @@
         let timer;
         let currentTask;
         let endTime;
+        let timeLeft;
 
         function startTask() {
             const date = document.getElementById('task-date').value;
@@ -61,6 +62,7 @@
 
             currentTask = { date, name, startTime: new Date().toISOString(), status: 'in-progress' };
             endTime = Date.now() + 25 * 60 * 1000; // Set end time 25 minutes from now
+            timeLeft = 25 * 60; // Initialize timeLeft to 25 minutes in seconds
             updateTimerDisplay();
             timer = setInterval(updateTimer, 1000); // Update every second
 
@@ -96,11 +98,12 @@
         }
 
         function updateTimer() {
-            const remaining = Math.max(0, endTime - Date.now());
-            timeLeft = Math.ceil(remaining / 1000);
-            updateTimerDisplay();
-            if (timeLeft <= 0) {
+            const now = Date.now();
+            if (now >= endTime) {
                 endTask();
+            } else {
+                timeLeft = Math.ceil((endTime - now) / 1000);
+                updateTimerDisplay();
             }
         }
 
