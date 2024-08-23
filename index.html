@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pomodoro App</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         /* Add some basic styling here */
         table {
@@ -22,85 +23,117 @@
     </style>
 </head>
 <body>
-    <h1>Pomodoro App </h1>
-    <p>This app is local first. All the data is stored in your browser. No data leaves your system. </p>
+    <h1>Pomodoro App</h1>
+    <p>This app is local first. All the data is stored in your browser. No data leaves your system.</p>
     
     <div id="task-form">
-        <h2>Create task </h1>
+        <h2>Create or Start Task</h2>
         <input type="date" id="task-date">
         <input type="text" id="task-name" placeholder="Task name">
-        <button onclick="startTask()">Start Task</button>
+        <button id="add-task">Add Task</button>
+        <button id="start-task">Start Task</button>
     </div>
 
     <div id="timer">
         <h2>Current Task: <span id="current-task-name">No task running</span></h2>
         <h3>Time Remaining: <span id="time-left">25:00</span></h3>
-        <button onclick="stopTask()" id="stop-btn" style="display:none;">Stop Task</button>
-        <button onclick="removeTask()" id="remove-btn" style="display:none;">Remove Task</button>
-        <button onclick="markTaskComplete(true)" id="complete-btn" style="display:none;">Mark Complete</button>
-        <button onclick="markTaskComplete(false)" id="incomplete-btn" style="display:none;">Mark Incomplete</button>
     </div>
 
     <div id="task-history">
         <h2>Task History (Last 7 Days)</h2>
-        <div style="width: 50%;" id="task-tables"></div>
+        <div id="task-tables"></div>
     </div>
 
     <script>
+    $(document).ready(function() {
         let timer;
         let currentTask;
+        let currentTimeSlot;
         let endTime;
         let timeLeft;
 
-        function startTask() {
-            const date = document.getElementById('task-date').value;
-            const name = document.getElementById('task-name').value;
+        function addTask() {
+            const date = $('#task-date').val();
+            const name = $('#task-name').val();
             if (!date || !name) {
                 alert('Please enter both date and task name');
                 return;
             }
 
-            currentTask = { date, name, startTime: new Date().toISOString(), status: 'in-progress' };
-            endTime = Date.now() + 25 * 60 * 1000; // Set end time 25 minutes from now
-            timeLeft = 25 * 60; // Initialize timeLeft to 25 minutes in seconds
-            updateTimerDisplay();
-            timer = setInterval(updateTimer, 1000); // Update every second
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            const newTask = { date, name, timeSlots: [], status: 'not started' };
+            tasks.push(newTask);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            showTaskHistory();
+        }
 
-            document.getElementById('current-task-name').textContent = name;
-            document.getElementById('stop-btn').style.display = 'inline';
-            document.getElementById('remove-btn').style.display = 'inline';
-            document.getElementById('complete-btn').style.display = 'none';
-            document.getElementById('incomplete-btn').style.display = 'none';
+        function startTask() {
+            const date = $('#task-date').val();
+            const name = $('#task-name').val();
+            if (!date || !name) {
+                alert('Please enter both date and task name');
+                return;
+            }
+
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            let task = tasks.find(t => t.date === date && t.name === name);
+
+            if (!task) {
+                task = { date, name, timeSlots: [], status: 'in-progress' };
+                tasks.push(task);
+            } else {
+                task.status = 'in-progress';
+            }
+
+            const newTimeSlot = { startTime: new Date().toISOString(), endTime: null };
+            task.timeSlots.push(newTimeSlot);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+
+            currentTask = task;
+            currentTimeSlot = newTimeSlot;
+            endTime = Date.now() + 25 * 60 * 1000;
+            timeLeft = 25 * 60;
+            updateTimerDisplay();
+            timer = setInterval(updateTimer, 1000);
+
+            $('#current-task-name').text(name);
+            
+            localStorage.setItem('currentTask', JSON.stringify({
+                task: currentTask,
+                timeSlot: currentTimeSlot,
+                endTime: endTime
+            }));
 
             showTaskHistory();
         }
 
         function stopTask() {
             clearInterval(timer);
-            currentTask.status = 'stopped';
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('remove-btn').style.display = 'inline';
-            document.getElementById('complete-btn').style.display = 'inline';
-            document.getElementById('incomplete-btn').style.display = 'inline';
-            showTaskHistory();
-        }
-
-        function removeTask() {
-            clearInterval(timer);
+            if (currentTask && currentTimeSlot) {
+                currentTask.status = 'stopped';
+                currentTimeSlot.endTime = new Date().toISOString();
+                let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+                const taskIndex = tasks.findIndex(t => t.date === currentTask.date && t.name === currentTask.name);
+                if (taskIndex !== -1) {
+                    tasks[taskIndex] = currentTask;
+                }
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+            
             currentTask = null;
-            document.getElementById('current-task-name').textContent = 'No task running';
-            document.getElementById('time-left').textContent = '25:00';
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('remove-btn').style.display = 'none';
-            document.getElementById('complete-btn').style.display = 'none';
-            document.getElementById('incomplete-btn').style.display = 'none';
+            currentTimeSlot = null;
+            $('#current-task-name').text('No task running');
+            $('#time-left').text('25:00');
+
+            localStorage.removeItem('currentTask');
+
             showTaskHistory();
         }
 
         function updateTimer() {
             const now = Date.now();
             if (now >= endTime) {
-                endTask();
+                stopTask();
             } else {
                 timeLeft = Math.ceil((endTime - now) / 1000);
                 updateTimerDisplay();
@@ -110,125 +143,99 @@
         function updateTimerDisplay() {
             const minutes = Math.floor(timeLeft / 60);
             const seconds = timeLeft % 60;
-            document.getElementById('time-left').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        function endTask() {
-            clearInterval(timer);
-            currentTask.status = 'completed';
-            document.getElementById('time-left').textContent = 'Time\'s up!';
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('remove-btn').style.display = 'inline';
-            document.getElementById('complete-btn').style.display = 'inline';
-            document.getElementById('incomplete-btn').style.display = 'inline';
-            showTaskHistory();
-        }
-
-        function markTaskComplete(completed) {
-            currentTask.completed = completed;
-            currentTask.endTime = new Date().toISOString();
-            currentTask.status = completed ? 'completed' : 'incomplete';
-            currentTask.notes = ''; // Initialize notes as an empty string
-
-            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-            tasks.push(currentTask);
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-
-            currentTask = null;
-            document.getElementById('current-task-name').textContent = 'No task running';
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('remove-btn').style.display = 'none';
-            document.getElementById('complete-btn').style.display = 'none';
-            document.getElementById('incomplete-btn').style.display = 'none';
-            showTaskHistory();
+            $('#time-left').text(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
         }
 
         function showTaskHistory() {
             const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-            const taskTables = document.getElementById('task-tables');
-            taskTables.innerHTML = '';
+            const $taskTables = $('#task-tables').empty();
 
             const last7Days = getLastSevenDays();
 
             last7Days.forEach(date => {
                 const filteredTasks = tasks.filter(task => task.date === date);
-                const hasCurrentTask = currentTask && currentTask.date === date;
 
-                if (filteredTasks.length > 0 || hasCurrentTask) {
-                    const dateHeader = document.createElement('h3');
-                    dateHeader.textContent = formatDate(date);
-                    taskTables.appendChild(dateHeader);
+                if (filteredTasks.length > 0) {
+                    $taskTables.append($('<h3>').text(formatDate(date)));
 
-                    const table = document.createElement('table');
-                    table.innerHTML = `
+                    const $table = $('<table>').append(`
                         <thead>
                             <tr>
                                 <th>Task Name</th>
                                 <th>Status</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
+                                <th>Time Slots</th>
                                 <th>Notes</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
-                    `;
-                    const tbody = table.querySelector('tbody');
-
-                    if (hasCurrentTask) {
-                        const row = tbody.insertRow();
-                        row.innerHTML = `
-                            <td>${currentTask.name}</td>
-                            <td>${currentTask.status} (Current)</td>
-                            <td>${formatTime(currentTask.startTime)}</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td>-</td>
-                        `;
-                    }
+                    `);
 
                     filteredTasks.forEach(task => {
-                        const row = tbody.insertRow();
-                        row.innerHTML = `
-                            <td>${task.name}</td>
-                            <td>${task.status}</td>
-                            <td>${formatTime(task.startTime)}</td>
-                            <td>${task.endTime ? formatTime(task.endTime) : '-'}</td>
-                            <td>
-                                <textarea onblur="updateTaskNotes('${task.startTime}', this.value)">${task.notes || ''}</textarea>
-                            </td>
-                            <td>
-                                <button onclick='deleteTask("${task.startTime}")'>Delete</button>
-                            </td>
-                        `;
+                        const timeSlotsHtml = task.timeSlots.map(slot => {
+                            if (!slot.endTime && (!currentTask || currentTask.name !== task.name || currentTask.date !== task.date)) {
+                                slot.endTime = new Date().toISOString();
+                            }
+                            return `${formatTime(slot.startTime)} - ${slot.endTime ? formatTime(slot.endTime) : 'In progress'}`;
+                        }).join('<br>');
+
+                        const isCurrentTask = currentTask && currentTask.date === task.date && currentTask.name === task.name;
+
+                        $table.find('tbody').append(`
+                            <tr>
+                                <td>${task.name}</td>
+                                <td>${task.status}</td>
+                                <td>${timeSlotsHtml}</td>
+                                <td>
+                                    <textarea class="task-notes" data-date="${task.date}" data-name="${task.name}">${task.notes || ''}</textarea>
+                                </td>
+                                <td>
+                                    <button class="start-task" data-date="${task.date}" data-name="${task.name}" ${isCurrentTask ? 'disabled' : ''}>Start</button>
+                                    <button class="stop-task" data-date="${task.date}" data-name="${task.name}" ${!isCurrentTask ? 'disabled' : ''}>Stop</button>
+                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="true">Mark Complete</button>
+                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="false">Mark Incomplete</button>
+                                    <button class="delete-task" data-date="${task.date}" data-name="${task.name}">Delete</button>
+                                </td>
+                            </tr>
+                        `);
                     });
 
-                    taskTables.appendChild(table);
+                    $taskTables.append($table);
                 }
             });
 
-            if (taskTables.children.length === 0) {
-                const noTasksMessage = document.createElement('p');
-                noTasksMessage.textContent = 'No tasks in the last 7 days.';
-                taskTables.appendChild(noTasksMessage);
+            if ($taskTables.children().length === 0) {
+                $taskTables.append($('<p>').text('No tasks in the last 7 days.'));
             }
+
+            // Update tasks in localStorage
+            localStorage.setItem('tasks', JSON.stringify(tasks));
         }
 
-        function updateTaskNotes(taskStartTime, notes) {
+        function updateTaskNotes(date, name, notes) {
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-            const taskIndex = tasks.findIndex(task => task.startTime === taskStartTime);
+            const taskIndex = tasks.findIndex(task => task.date === date && task.name === name);
             if (taskIndex !== -1) {
                 tasks[taskIndex].notes = notes;
                 localStorage.setItem('tasks', JSON.stringify(tasks));
             }
         }
 
-        function deleteTask(taskStartTime) {
+        function deleteTask(date, name) {
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-            tasks = tasks.filter(task => task.startTime !== taskStartTime);
+            tasks = tasks.filter(task => !(task.date === date && task.name === name));
             localStorage.setItem('tasks', JSON.stringify(tasks));
             showTaskHistory();
+        }
+
+        function markTaskComplete(date, name, completed) {
+            let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            const taskIndex = tasks.findIndex(t => t.date === date && t.name === name);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].status = completed ? 'completed' : 'incomplete';
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                showTaskHistory();
+            }
         }
 
         function formatTime(isoString) {
@@ -251,12 +258,58 @@
             return new Date(dateString).toLocaleDateString(undefined, options);
         }
 
-        // Initialize task history on page load
-        document.addEventListener('DOMContentLoaded', () => {
+        function initializePage() {
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('task-date').value = today;
+            $('#task-date').val(today);
+
+            const storedCurrentTask = localStorage.getItem('currentTask');
+            if (storedCurrentTask) {
+                const { task, timeSlot, endTime: storedEndTime } = JSON.parse(storedCurrentTask);
+                currentTask = task;
+                currentTimeSlot = timeSlot;
+                endTime = storedEndTime;
+                timeLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+                if (timeLeft <= 0) {
+                    stopTask();
+                } else {
+                    $('#current-task-name').text(currentTask.name);
+                    updateTimerDisplay();
+                    timer = setInterval(updateTimer, 1000);
+                }
+            }
+
             showTaskHistory();
+        }
+
+        // Event listeners
+        $('#add-task').on('click', addTask);
+        $('#start-task').on('click', startTask);
+        $('#task-tables').on('click', '.start-task', function() {
+            if (!$(this).prop('disabled')) {
+                $('#task-date').val($(this).data('date'));
+                $('#task-name').val($(this).data('name'));
+                startTask();
+            }
         });
+        $('#task-tables').on('click', '.stop-task', function() {
+            if (!$(this).prop('disabled')) {
+                stopTask();
+            }
+        });
+        $('#task-tables').on('click', '.delete-task', function() {
+            deleteTask($(this).data('date'), $(this).data('name'));
+        });
+        $('#task-tables').on('click', '.mark-complete', function() {
+            markTaskComplete($(this).data('date'), $(this).data('name'), $(this).data('completed') === 'true');
+        });
+        $('#task-tables').on('blur', '.task-notes', function() {
+            updateTaskNotes($(this).data('date'), $(this).data('name'), $(this).val());
+        });
+
+        // Initialize page
+        initializePage();
+    });
     </script>
 </body>
 </html>
