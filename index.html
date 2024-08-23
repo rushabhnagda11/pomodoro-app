@@ -229,6 +229,10 @@
         }
 
         function markTaskComplete(date, name, completed) {
+            // If this is the current task, stop it
+            if (currentTask && currentTask.date === date && currentTask.name === name) {
+                stopTask();
+            }
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
             const taskIndex = tasks.findIndex(t => t.date === date && t.name === name);
             if (taskIndex !== -1) {
@@ -245,10 +249,7 @@
 
                 localStorage.setItem('tasks', JSON.stringify(tasks));
 
-                // If this is the current task, stop it
-                if (currentTask && currentTask.date === date && currentTask.name === name) {
-                    stopTask();
-                }
+
 
                 showTaskHistory();
             }
