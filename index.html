@@ -232,6 +232,7 @@
             let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
             const taskIndex = tasks.findIndex(t => t.date === date && t.name === name);
             if (taskIndex !== -1) {
+                // Update the status to completed or incomplete
                 tasks[taskIndex].status = completed ? 'completed' : 'incomplete';
                 
                 // Update the end time of the last time slot if it's still open
@@ -247,9 +248,9 @@
                 // If this is the current task, stop it
                 if (currentTask && currentTask.date === date && currentTask.name === name) {
                     stopTask();
-                } else {
-                    showTaskHistory();
                 }
+
+                showTaskHistory();
             }
         }
 
