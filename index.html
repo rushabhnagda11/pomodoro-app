@@ -192,8 +192,8 @@
                                 <td>
                                     <button class="start-task" data-date="${task.date}" data-name="${task.name}" ${isCurrentTask ? 'disabled' : ''}>Start</button>
                                     <button class="stop-task" data-date="${task.date}" data-name="${task.name}" ${!isCurrentTask ? 'disabled' : ''}>Stop</button>
-                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="true" ${task.status === 'completed' ? 'disabled' : ''}>Mark Complete</button>
-                                    <button class="mark-incomplete" data-date="${task.date}" data-name="${task.name}" data-completed="false" ${task.status !== 'completed' ? 'disabled' : ''}>Mark Incomplete</button>
+                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" ${task.status === 'completed' ? 'disabled' : ''}>Mark Complete</button>
+                                    <button class="mark-incomplete" data-date="${task.date}" data-name="${task.name}" ${task.status !== 'completed' ? 'disabled' : ''}>Mark Incomplete</button>
                                     <button class="delete-task" data-date="${task.date}" data-name="${task.name}">Delete</button>
                                 </td>
                             </tr>
@@ -234,7 +234,13 @@
             if (taskIndex !== -1) {
                 tasks[taskIndex].status = completed ? 'completed' : 'incomplete';
                 localStorage.setItem('tasks', JSON.stringify(tasks));
-                showTaskHistory();
+
+                // If this is the current task, stop it
+                if (currentTask && currentTask.date === date && currentTask.name === name) {
+                    stopTask();
+                } else {
+                    showTaskHistory();
+                }
             }
         }
 
