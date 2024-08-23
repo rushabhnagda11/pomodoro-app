@@ -233,6 +233,15 @@
             const taskIndex = tasks.findIndex(t => t.date === date && t.name === name);
             if (taskIndex !== -1) {
                 tasks[taskIndex].status = completed ? 'completed' : 'incomplete';
+                
+                // Update the end time of the last time slot if it's still open
+                if (tasks[taskIndex].timeSlots.length > 0) {
+                    const lastTimeSlot = tasks[taskIndex].timeSlots[tasks[taskIndex].timeSlots.length - 1];
+                    if (!lastTimeSlot.endTime) {
+                        lastTimeSlot.endTime = new Date().toISOString();
+                    }
+                }
+
                 localStorage.setItem('tasks', JSON.stringify(tasks));
 
                 // If this is the current task, stop it
