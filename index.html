@@ -192,8 +192,8 @@
                                 <td>
                                     <button class="start-task" data-date="${task.date}" data-name="${task.name}" ${isCurrentTask ? 'disabled' : ''}>Start</button>
                                     <button class="stop-task" data-date="${task.date}" data-name="${task.name}" ${!isCurrentTask ? 'disabled' : ''}>Stop</button>
-                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="true">Mark Complete</button>
-                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="false">Mark Incomplete</button>
+                                    <button class="mark-complete" data-date="${task.date}" data-name="${task.name}" data-completed="true" ${task.status === 'completed' ? 'disabled' : ''}>Mark Complete</button>
+                                    <button class="mark-incomplete" data-date="${task.date}" data-name="${task.name}" data-completed="false" ${task.status !== 'completed' ? 'disabled' : ''}>Mark Incomplete</button>
                                     <button class="delete-task" data-date="${task.date}" data-name="${task.name}">Delete</button>
                                 </td>
                             </tr>
@@ -301,7 +301,14 @@
             deleteTask($(this).data('date'), $(this).data('name'));
         });
         $('#task-tables').on('click', '.mark-complete', function() {
-            markTaskComplete($(this).data('date'), $(this).data('name'), $(this).data('completed') === 'true');
+            if (!$(this).prop('disabled')) {
+                markTaskComplete($(this).data('date'), $(this).data('name'), true);
+            }
+        });
+        $('#task-tables').on('click', '.mark-incomplete', function() {
+            if (!$(this).prop('disabled')) {
+                markTaskComplete($(this).data('date'), $(this).data('name'), false);
+            }
         });
         $('#task-tables').on('blur', '.task-notes', function() {
             updateTaskNotes($(this).data('date'), $(this).data('name'), $(this).val());
